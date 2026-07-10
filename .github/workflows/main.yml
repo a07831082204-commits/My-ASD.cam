@@ -2,7 +2,7 @@ name: Build Flutter APK
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -10,48 +10,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Unzip project files directly
-      run: |
-        unzip -o pro_camera_app.zip
-        if [ ! -f "pubspec.yaml" ]; then
-          mv */* . 2>/dev/null || true
-          mv * . 2>/dev/null || true
-        fi
+      - name: Locate project and normalize root
+        run: |
+          echo "Repository root contents before fix:"
+          ls -la
 
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
+          ZIP_FILE=$(find . -maxdepth 1 -iname "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Found zip file: $ZIP_FILE - extracting..."
+            unzip -o "$ZIP_FILE" -d .
+          fi
 
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.19.0'
-        channel: 'stable'
+          PUBSPEC_PATH=$(find . -maxdepth 4 -iname "pubspec.yaml" | head -n 1)
 
-    - name: Fix Android V2 Embedding & Build App
-      run: |
-        # البحث عن مجلد المشروع الحقيقي والدخول إليه
-        TARGET_DIR="."
-        if [ ! -f "pubspec.yaml" ]; then
-          TARGET_DIR=$(find . -name "pubspec.yaml" -exec dirname {} \;)
-        fi
-        cd $TARGET_DIR
-        
-        # أمر سحري لتحديث إعدادات الأندرويد وإصلاح مشكلة الـ Embedding v2 تلقائياً
-        flutter create --platforms android .
-        
-        # جلب المكتبات وبناء التطبيق
-        flutter pub get
-        flutter build apk --release --target-platform android-arm64
+          if [ -z "$PUBSPEC_PATH" ]; then
+            echo "ERROR: pubspec.yaml not found anywhere in the repository."
+            echo "Full repository listing for debugging:"
+            find . -maxdepth 4
+            exit 1
+          fi
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Lumina-Pro-AI-APK
-        path: "**/build/app/outputs/flutter-apk/app-release.apk"
-        
+          PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
+          echo "Found pubspec.yaml at: $PUBSPEC_PATH"
+          echo "Project directory: $PROJECT_DIR"
+
+          if [ "$PROJECT_DIR" != "." ]; then
+            echo "Moving project contents from $PROJECT_DIR to repository root..."
+            shopt -s dotglob
+            mv "$PROJECT_DIR"/* .
+          fi
+
+          echo "Repository root contents after fix:"
+          ls -la
+
+      - name: Setup Java (required by Android Gradle Plugin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pro-camera-app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
