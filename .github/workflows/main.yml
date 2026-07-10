@@ -15,10 +15,8 @@ jobs:
 
     - name: Unzip project files directly
       run: |
-        # فك الضغط مباشرة في المجلد الحالي والبحث عن ملف pubspec لتنظيم المسار
         unzip -o pro_camera_app.zip
         if [ ! -f "pubspec.yaml" ]; then
-          echo "Moving files from subfolder..."
           mv */* . 2>/dev/null || true
           mv * . 2>/dev/null || true
         fi
@@ -35,24 +33,21 @@ jobs:
         flutter-version: '3.19.0'
         channel: 'stable'
 
-    - name: Get dependencies
+    - name: Fix Android V2 Embedding & Build App
       run: |
-        # التأكد من الانتقال للمجلد الذي يحتوي على pubspec.yaml إذا كان داخل مجلد فرعي
-        if [ -f "pubspec.yaml" ]; then
-          flutter pub get
-        else
-          cd $(find . -name "pubspec.yaml" -exec dirname {} \;)
-          flutter pub get
+        # البحث عن مجلد المشروع الحقيقي والدخول إليه
+        TARGET_DIR="."
+        if [ ! -f "pubspec.yaml" ]; then
+          TARGET_DIR=$(find . -name "pubspec.yaml" -exec dirname {} \;)
         fi
-
-    - name: Build APK
-      run: |
-        if [ -f "pubspec.yaml" ]; then
-          flutter build apk --release --target-platform android-arm64
-        else
-          cd $(find . -name "pubspec.yaml" -exec dirname {} \;)
-          flutter build apk --release --target-platform android-arm64
-        fi
+        cd $TARGET_DIR
+        
+        # أمر سحري لتحديث إعدادات الأندرويد وإصلاح مشكلة الـ Embedding v2 تلقائياً
+        flutter create --platforms android .
+        
+        # جلب المكتبات وبناء التطبيق
+        flutter pub get
+        flutter build apk --release --target-platform android-arm64
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
