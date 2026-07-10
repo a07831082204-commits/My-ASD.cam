@@ -1,0 +1,47 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Unzip project files
+      run: |
+        unzip pro_camera_app.zip -d project_files
+        cd project_files
+        # نقل الملفات للمسار الرئيسي ليتمكن السيرفر من رؤيتها مباشرة
+        mv * .. || true
+        cd ..
+
+    - name: Set up Java
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0' # نسخة مستقرة وممتازة لمشروعك
+        channel: 'stable'
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Build APK
+      run: flutter build apk --release --target-platform android-arm64
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Lumina-Pro-AI-APK
+        path: build/app/outputs/flutter-apk/app-release.apk
+        
