@@ -38,9 +38,9 @@ jobs:
           echo "Project directory: $PROJECT_DIR"
 
           if [ "$PROJECT_DIR" != "." ]; then
-            echo "Moving project contents from $PROJECT_DIR to repository root..."
-            shopt -s dotglob
-            mv "$PROJECT_DIR"/* .
+            echo "Merging project contents from $PROJECT_DIR into repository root..."
+            rsync -a --exclude='.github' "$PROJECT_DIR"/ .
+            rm -rf "$PROJECT_DIR"
           fi
 
           echo "Repository root contents after fix:"
